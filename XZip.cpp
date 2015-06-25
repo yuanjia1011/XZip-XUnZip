@@ -104,6 +104,7 @@
 #include <tchar.h>
 #include <time.h>
 #include "xzip.h"
+#include "malloc.h"
 
 #pragma warning(disable : 4996)	// disable bogus deprecation warning
 
@@ -3145,96 +3146,82 @@ bool IsZipHandleZ(HZIP hz)
 * @param DirToAdd like "System32"
 *
 */
-BOOL AddFolderContent(HZIP hZip, TCHAR* AbsolutePath, TCHAR* DirToAdd)
+ZRESULT AddFolderContent(HZIP hZip, TCHAR* AbsolutePath, TCHAR* DirToAdd)
 {
-	HANDLE hFind; // file handle
-	WIN32_FIND_DATA FindFileData;
-	TCHAR PathToSearchInto [MAX_PATH] = {0};
-	
-	if (NULL != DirToAdd)
-	{
-		ZipAdd(hZip, DirToAdd, 0, 0, ZIP_FOLDER);
-	}
-	
-	// Construct the path to search into "C:\\Windows\\System32\\*"
-	if (NULL == AbsolutePath)
-	{
-		AbsolutePath = (LPTSTR)malloc(200 * sizeof(TCHAR));
-		ZeroMemory(AbsolutePath, 200 * sizeof(TCHAR));
-		::GetCurrentDirectory(200, AbsolutePath);
-		_tcscpy(PathToSearchInto, AbsolutePath);
-		_tcscat(PathToSearchInto, _T("\\"));
-		free(AbsolutePath);
-		AbsolutePath = NULL;
-	} else{
-		_tcscpy(PathToSearchInto, AbsolutePath);
-		_tcscat(PathToSearchInto, _T("\\"));
-	}
-	_tcscat(PathToSearchInto, DirToAdd);
-	_tcscat(PathToSearchInto, _T("\\*"));
-	
-	hFind = FindFirstFile(PathToSearchInto,&FindFileData); // find the first file
-	if(hFind == INVALID_HANDLE_VALUE)
-	{
-		return FALSE;
-	}
-	
-	bool bSearch = true;
-	while(bSearch) // until we finds an entry
-	{
-		if(FindNextFile(hFind,&FindFileData))
-		{
-			// Don't care about . and ..
-			//if(IsDots(FindFileData.cFileName))
-			if ((_tcscmp(FindFileData.cFileName, _T(".")) == 0) ||
-				(_tcscmp(FindFileData.cFileName, _T("..")) == 0))
-				continue;
-			
-			// We have found a directory
-			if((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-			{
-				TCHAR RelativePathNewDirFound[MAX_PATH] = {0};
-				_tcscat(RelativePathNewDirFound, DirToAdd);
-				_tcscat(RelativePathNewDirFound, _T("\\"));
-				_tcscat(RelativePathNewDirFound, FindFileData.cFileName);
-				
-				// Recursive call with the new directory found
-				if (AddFolderContent(hZip, AbsolutePath, RelativePathNewDirFound)== FALSE)
-				{
-					return FALSE ;
-				}
-				
-			}
-			// We have found a file
-			else
-			{
-				// Add the found file to the zip file
-				TCHAR RelativePathNewFileFound[MAX_PATH] = {0};
-				_tcscpy(RelativePathNewFileFound, DirToAdd);
-				_tcscat(RelativePathNewFileFound, _T("\\"));
-				_tcscat(RelativePathNewFileFound, FindFileData.cFileName);
-				
-				if (ZipAdd(hZip, RelativePathNewFileFound, RelativePathNewFileFound, 0, ZIP_FILENAME) != ZR_OK)
-				{
-					return FALSE;
-				}
-			}
-			
-		}//FindNextFile
-		else
-		{
-			if(GetLastError() == ERROR_NO_MORE_FILES) // no more files there
-				bSearch = false;
-			else {
-				// some error occured, close the handle and return FALSE
-				FindClose(hFind);
-				return FALSE;
-			}
-		}
-	}//while
-	
-	FindClose(hFind); // closing file handle
-	return true;
-	
+    HANDLE hFind;
+    WIN32_FIND_DATA FindFileData;
+    TCHAR PathToSearchInto [MAX_PATH] = {0};
+    if (NULL != DirToAdd)
+    {
+        ZipAdd(hZip, DirToAdd, 0, 0, ZIP_FOLDER);
+    }
+    if (NULL == AbsolutePath)
+    {
+        AbsolutePath = (LPTSTR)malloc(200 * sizeof(TCHAR));
+        ZeroMemory(AbsolutePath, 200 * sizeof(TCHAR));
+        ::GetCurrentDirectory(200, AbsolutePath);
+        _tcscpy(PathToSearchInto, AbsolutePath);
+        _tcscat(PathToSearchInto, _T("\\"));
+        free(AbsolutePath);
+        AbsolutePath = NULL;
+    }
+    else
+    {
+        _tcscpy(PathToSearchInto, AbsolutePath);
+        _tcscat(PathToSearchInto, _T("\\"));
+    }
+    _tcscat(PathToSearchInto, DirToAdd);
+    _tcscat(PathToSearchInto, _T("\\*"));
+    hFind = FindFirstFile(PathToSearchInto,&FindFileData);
+    if(hFind == INVALID_HANDLE_VALUE)
+    {
+        return ZR_NOTFOUND;
+    }
+    bool bSearch = true;
+    while(bSearch)
+    {
+        if(FindNextFile(hFind,&FindFileData))
+        {
+            if ((_tcscmp(FindFileData.cFileName, _T(".")) == 0) ||
+                    (_tcscmp(FindFileData.cFileName, _T("..")) == 0))
+                continue;
+            if((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+            {
+                TCHAR RelativePathNewDirFound[MAX_PATH] = {0};
+                _tcscat(RelativePathNewDirFound, DirToAdd);
+                _tcscat(RelativePathNewDirFound, _T("\\"));
+                _tcscat(RelativePathNewDirFound, FindFileData.cFileName);
+				ZRESULT zr = ZR_OK;
+                if ((zr = AddFolderContent(hZip, AbsolutePath, RelativePathNewDirFound)) != ZR_OK)
+                {
+                    return zr ;
+                }
+            }
+            else
+            {
+                TCHAR RelativePathNewFileFound[MAX_PATH] = {0};
+                _tcscpy(RelativePathNewFileFound, DirToAdd);
+                _tcscat(RelativePathNewFileFound, _T("\\"));
+                _tcscat(RelativePathNewFileFound, FindFileData.cFileName);
+				ZRESULT zr = ZR_OK;
+                if ((zr =ZipAdd(hZip, RelativePathNewFileFound, RelativePathNewFileFound, 0, ZIP_FILENAME)) != ZR_OK)
+                {
+                    return zr;
+                }
+            }
+        }
+        else
+        {
+            if(GetLastError() == ERROR_NO_MORE_FILES)
+                bSearch = false;
+            else
+            {
+                FindClose(hFind);
+                return ZR_NOFILE;
+            }
+        }
+    }
+    FindClose(hFind);
+    return ZR_OK;
 }
 

@@ -111,6 +111,8 @@ typedef DWORD ZRESULT;		// result codes from any of the zip functions. Listed la
 #define ZIP_MEMORY   3
 #define ZIP_FOLDER   4
 
+#define ZIP_SUCCESS(zr)			(zr == ZR_OK)
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -314,7 +316,7 @@ HZIP CreateZipZ(void *z,unsigned int len,DWORD flags);
 ZRESULT CloseZipZ(HZIP hz);
 unsigned int FormatZipMessageZ(ZRESULT code, char *buf,unsigned int len);
 bool IsZipHandleZ(HZIP hz);
-BOOL AddFolderContent(HZIP hZip, TCHAR* AbsolutePath, TCHAR* DirToAdd);
+ZRESULT AddFolderContent(HZIP hZip, TCHAR* AbsolutePath, TCHAR* DirToAdd);
 
 #define CreateZip CreateZipZ
 
