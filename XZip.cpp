@@ -3157,8 +3157,19 @@ BOOL AddFolderContent(HZIP hZip, TCHAR* AbsolutePath, TCHAR* DirToAdd)
 	}
 	
 	// Construct the path to search into "C:\\Windows\\System32\\*"
-	_tcscpy(PathToSearchInto, AbsolutePath);
-	_tcscat(PathToSearchInto, _T("\\"));
+	if (NULL == AbsolutePath)
+	{
+		AbsolutePath = (LPTSTR)malloc(200 * sizeof(TCHAR));
+		ZeroMemory(AbsolutePath, 200 * sizeof(TCHAR));
+		::GetCurrentDirectory(200, AbsolutePath);
+		_tcscpy(PathToSearchInto, AbsolutePath);
+		_tcscat(PathToSearchInto, _T("\\"));
+		free(AbsolutePath);
+		AbsolutePath = NULL;
+	} else{
+		_tcscpy(PathToSearchInto, AbsolutePath);
+		_tcscat(PathToSearchInto, _T("\\"));
+	}
 	_tcscat(PathToSearchInto, DirToAdd);
 	_tcscat(PathToSearchInto, _T("\\*"));
 	
