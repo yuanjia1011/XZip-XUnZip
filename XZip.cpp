@@ -3146,15 +3146,18 @@ bool IsZipHandleZ(HZIP hz)
 * @param DirToAdd like "System32"
 *
 */
-ZRESULT AddFolderContent(HZIP hZip, TCHAR* AbsolutePath, TCHAR* DirToAdd)
+ZRESULT AddFolderContent(HZIP hZip, LPTSTR fileinzippath, TCHAR* AbsolutePath, TCHAR* DirToAdd)
 {
     HANDLE hFind;
     WIN32_FIND_DATA FindFileData;
     TCHAR PathToSearchInto [MAX_PATH] = {0};
-    if (NULL != DirToAdd)
+    if (NULL != fileinzippath)
     {
-        ZipAdd(hZip, DirToAdd, 0, 0, ZIP_FOLDER);
-    }
+        ZipAdd(hZip, fileinzippath, 0, 0, ZIP_FOLDER);
+	} else if (DirToAdd)
+	{
+		ZipAdd(hZip, DirToAdd, 0, 0, ZIP_FOLDER);
+	}
     if (NULL == AbsolutePath)
     {
         AbsolutePath = (LPTSTR)malloc(200 * sizeof(TCHAR));
@@ -3168,8 +3171,14 @@ ZRESULT AddFolderContent(HZIP hZip, TCHAR* AbsolutePath, TCHAR* DirToAdd)
     else
     {
         _tcscpy(PathToSearchInto, AbsolutePath);
-        _tcscat(PathToSearchInto, _T("\\"));
+		int length = _tcslen(PathToSearchInto);
+		if (*(PathToSearchInto + length - 1) != _T('\\'))
+		{
+			_tcscat(PathToSearchInto, _T("\\"));
+		}
     }
+	TCHAR folderpath[MAX_PATH];
+	_tcscpy_s(folderpath, MAX_PATH, PathToSearchInto);
     _tcscat(PathToSearchInto, DirToAdd);
     _tcscat(PathToSearchInto, _T("\\*"));
     hFind = FindFirstFile(PathToSearchInto,&FindFileData);
@@ -3182,6 +3191,8 @@ ZRESULT AddFolderContent(HZIP hZip, TCHAR* AbsolutePath, TCHAR* DirToAdd)
     {
         if(FindNextFile(hFind,&FindFileData))
         {
+			TCHAR lpfileinzippath[MAX_PATH];
+			_tcscpy_s(lpfileinzippath, MAX_PATH, fileinzippath);
             if ((_tcscmp(FindFileData.cFileName, _T(".")) == 0) ||
                     (_tcscmp(FindFileData.cFileName, _T("..")) == 0))
                 continue;
@@ -3191,8 +3202,10 @@ ZRESULT AddFolderContent(HZIP hZip, TCHAR* AbsolutePath, TCHAR* DirToAdd)
                 _tcscat(RelativePathNewDirFound, DirToAdd);
                 _tcscat(RelativePathNewDirFound, _T("\\"));
                 _tcscat(RelativePathNewDirFound, FindFileData.cFileName);
+				_tcscat(lpfileinzippath, _T("\\"));
+				_tcscat(lpfileinzippath, FindFileData.cFileName);
 				ZRESULT zr = ZR_OK;
-                if ((zr = AddFolderContent(hZip, AbsolutePath, RelativePathNewDirFound)) != ZR_OK)
+                if ((zr = AddFolderContent(hZip, lpfileinzippath, AbsolutePath, RelativePathNewDirFound)) != ZR_OK)
                 {
                     return zr ;
                 }
@@ -3200,11 +3213,25 @@ ZRESULT AddFolderContent(HZIP hZip, TCHAR* AbsolutePath, TCHAR* DirToAdd)
             else
             {
                 TCHAR RelativePathNewFileFound[MAX_PATH] = {0};
-                _tcscpy(RelativePathNewFileFound, DirToAdd);
-                _tcscat(RelativePathNewFileFound, _T("\\"));
-                _tcscat(RelativePathNewFileFound, FindFileData.cFileName);
+				_tcscpy_s(RelativePathNewFileFound, MAX_PATH, AbsolutePath);
+				int length = _tcslen(RelativePathNewFileFound);
+				if (*(RelativePathNewFileFound + length - 1) != _T('\\'))
+				{
+					_tcscat_s(RelativePathNewFileFound, MAX_PATH, _T("\\"));
+				}
+                _tcscat_s(RelativePathNewFileFound, MAX_PATH, DirToAdd);
+                _tcscat_s(RelativePathNewFileFound, MAX_PATH, _T("\\"));
+                _tcscat_s(RelativePathNewFileFound, MAX_PATH, FindFileData.cFileName);
 				ZRESULT zr = ZR_OK;
-                if ((zr =ZipAdd(hZip, RelativePathNewFileFound, RelativePathNewFileFound, 0, ZIP_FILENAME)) != ZR_OK)
+				TCHAR currentfilepath[MAX_PATH];
+				_tcscpy_s(currentfilepath, MAX_PATH, lpfileinzippath);
+				length = _tcslen(currentfilepath);
+				if (*(currentfilepath + length - 1) != _T('\\'))
+				{
+					_tcscat(currentfilepath, _T("\\"));
+				}
+				_tcscat_s(currentfilepath, MAX_PATH, FindFileData.cFileName);
+                if ((zr =ZipAdd(hZip, currentfilepath, RelativePathNewFileFound, 0, ZIP_FILENAME)) != ZR_OK)
                 {
                     return zr;
                 }

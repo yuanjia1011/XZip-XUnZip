@@ -316,7 +316,7 @@ HZIP CreateZipZ(void *z,unsigned int len,DWORD flags);
 ZRESULT CloseZipZ(HZIP hz);
 unsigned int FormatZipMessageZ(ZRESULT code, char *buf,unsigned int len);
 bool IsZipHandleZ(HZIP hz);
-ZRESULT AddFolderContent(HZIP hZip, TCHAR* AbsolutePath, TCHAR* DirToAdd);
+ZRESULT AddFolderContent(HZIP hZip, LPTSTR fileinzippath, TCHAR* AbsolutePath, TCHAR* DirToAdd);
 
 #define CreateZip CreateZipZ
 
